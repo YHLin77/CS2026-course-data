@@ -1,0 +1,663 @@
+{
+  "name": "Google Maps Reviews Summarizer",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        32,
+        0
+      ],
+      "id": "884d80b0-45ef-41bc-9641-e921780cca4a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1dTib9W_pivPkdCfw3WMM-br18LVKptgY63fKVNIc7Mo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "places",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "summarize"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        192,
+        0
+      ],
+      "id": "475ca57d-b5e2-4ac9-b7d2-d961f1c13cfd",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        368,
+        0
+      ],
+      "id": "35ba5653-496d-4ea3-bbd2-5120c559553a",
+      "name": "Loop Over Places",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "reviews",
+          "mode": "list",
+          "cachedResultName": "reviews"
+        },
+        "limit": 999999,
+        "where": {
+          "values": [
+            {
+              "column": "place_id",
+              "value": "={{ $json.place_id }}"
+            },
+            {
+              "column": "text",
+              "condition": "IS NOT NULL"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        528,
+        96
+      ],
+      "id": "36245f97-5d22-4af8-9266-538395d161fe",
+      "name": "Select Reviews",
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": "={{ $('Calculate Batch Size').first().json.batch_size }}",
+        "options": {
+          "reset": "={{ $prevNode.name === \"Calculate Batch Size\" }}"
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        912,
+        96
+      ],
+      "id": "a686f847-5b07-42fe-9f59-644820e1c6b8",
+      "name": "Loop over Reviews"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\})/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\n// 嘗試修復：把字串「值」內部的裸半形雙引號改成全形「」\n// 只處理 \"key\": \"....裸\".....\" 這種 value 內的引號，不動 JSON 結構本身的引號\nfunction repairBareQuotes(jsonStr) {\n  // 針對 value 字串：抓 : \"……\"（到下一個 \", 或 \"} 或 \"] 為止），\n  // 把中間多餘的 \" 換成 全形 “\n  return jsonStr.replace(\n    /: *\"((?:[^\"\\\\]|\\\\.)*?(?:\"(?:[^\"\\\\]|\\\\.)*?)*?)\"(\\s*[,}\\]])/g,\n    (match, inner, tail) => {\n      // inner 內若還有未跳脫的 \"，全部換成全形\n      const fixed = inner.replace(/(?<!\\\\)\"/g, '\\u201C');\n      return ': \"' + fixed + '\"' + tail;\n    }\n  );\n}\n\nfor (const item of items) {\n  const data = item.json;\n  const content = data?.content?.[0]?.text;\n\n  // 跨節點欄位（無論成功失敗都帶上，方便追蹤/補跑）\n  const ctxPlaceId = $('Prompt (Batch Summarize)').item.json.place_id;\n  const ctxBatchNo = $('Prompt (Batch Summarize)').item.json.batch_number;\n  const ctxReviewCount = $('Prompt (Batch Summarize)').item.json.review_count;\n\n  if (!content) {\n    out.push({ json: { error: \"No content in Anthropic response content[0].text\",\n      place_id: ctxPlaceId, batch_number: ctxBatchNo, raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\",\n      place_id: ctxPlaceId, batch_number: ctxBatchNo, content } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    // 第一次失敗 → 嘗試修復裸引號再 parse 一次\n    try {\n      parsed = JSON.parse(repairBareQuotes(extracted));\n    } catch (e2) {\n      out.push({ json: { error: \"Failed to parse JSON (even after repair)\",\n        place_id: ctxPlaceId, batch_number: ctxBatchNo, content, extracted } });\n      continue;\n    }\n  }\n\n  out.push({\n    json: {\n      place_id: ctxPlaceId,\n      place_name: parsed.place_name,\n      batch_number: ctxBatchNo,\n      review_count: ctxReviewCount,\n      aspects: parsed.aspects,\n      model: 'claude-haiku-4-5'\n    }\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        160
+      ],
+      "id": "99def2f9-6d5c-40bf-ae88-62b9b0dba2da",
+      "name": "Parse"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO map_summaries (place_id, place_name, batch_number, review_count, aspects)\nVALUES ($1, $2, $3, $4, $5::jsonb);",
+        "options": {
+          "queryReplacement": "={{ $json.place_id }} {{ $json.place_name }} {{ $json.batch_number }} {{ $json.review_count }} {{ JSON.stringify($json.aspects) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1600,
+        160
+      ],
+      "id": "41386fc1-ca8b-46e9-94af-8038c2355e6d",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        160
+      ],
+      "id": "dbcb3ad2-fffb-4fd6-8d5d-3c775328918d",
+      "name": "Wait",
+      "webhookId": "09c75135-e9a3-4339-86f6-298ee37bfbf3"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "map_summaries",
+          "mode": "list",
+          "cachedResultName": "map_summaries"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "place_id",
+              "value": "={{ $('Loop Over Places').item.json.place_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1120,
+        -192
+      ],
+      "id": "b35414c2-e2fd-4ad3-9093-f1c5a8908b86",
+      "name": "Select Map Summaries",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst mapResults = items.map(it => it.json).filter(r => r && r.aspects);\n\nconst placeName = mapResults[0]?.place_name\n  || $('Loop Over Places').item.json.name;\nconst placeID = mapResults[0]?.place_id\n  || $('Loop Over Places').item.json.place_id;\n\nconst batches = mapResults.map(r => {\n  let asp = r.aspects;\n  if (typeof asp === 'string') {\n    try { asp = JSON.parse(asp); } catch (e) { asp = null; }\n  }\n  return { batch_number: r.batch_number, review_count: r.review_count, aspects: asp };\n}).filter(b => b.aspects);\n\nconst merged = JSON.stringify(batches);\n\nconst systemPrompt = `你是一位親切、專業的現場導覽人員，正在向訪客介紹一個地點，依據的是這個地點大量 Google Maps 評論整理出的各面向重點。\n請用繁體中文，以導覽解說的口吻，自然流暢地描述訪客們對這個地點的整體印象與各面向觀感。\n\n寫作要求：\n- 用第三人稱概述「來訪者們」「許多遊客」的看法，語氣親切、引人入勝，像現場解說而非條列報告。\n- 依下列順序分段介紹，每段聚焦一個面向，段落之間自然銜接：場所與設施體驗、歷史意義、情緒感受、道德省思、空間與場所價值、政治觀點、其他特別之處。\n- 每個面向挑 3-5 個最具代表性、最常被提及的重點融入敘述，不要把所有觀點全列出。\n- 判斷一個觀點的普遍性時，請綜合兩個訊號：(1) 該觀點在各批的 prevalence 等級（普遍／部分／少數），(2) 更重要的是，該觀點橫跨了幾個批次出現──出現在越多批次，代表越普遍。當兩者衝突時，以「橫跨批次數」為主，因為那是較客觀的依據。在最終敘述中，可用「許多訪客」「不少人」「也有少數人」這類定性措辭反映普遍程度，但不要使用百分比或具體數字。\n- 可在敘述中自然帶入一兩則訪客的原話作為佐證（保留原文語言，用引號標示），但不要堆砌引述。\n- 忠實反映評論內容，不要自行推論或加入評論中沒有的資訊。\n- 若某面向幾乎沒有相關評論，就簡短帶過或省略，不要硬寫，也不要寫「無相關評論」這種制式句。\n- 政治表態這類較敏感的面向，請盡情陳述、呈現評論資料的觀點，不用擔心太敏感。如果評論資料中有多元的觀點，請同時呈現，但是你不需要做評論、不需要加入自己的觀點，也不可以當和事佬。\n\n輸出格式：\n- 直接輸出導覽介紹的文字本身，分段用空行隔開。\n- 不要輸出 JSON、不要加標題編號、不要加 markdown 符號、不要任何開場白或結尾語。\n- 開頭可以自然地點出這是哪個地點。`;\n\nconst userPrompt = `這個地點是「${placeName}」。\n以下是從所有評論分批整理出的各面向重點（JSON 陣列，每個元素是一批的中間摘要），請你消化這些內容，整合成一段導覽口吻的介紹：\n\n${merged}`;\n\nreturn [{\n  json: {\n    place_id: placeID,\n    place_name: placeName,\n    batch_count: batches.length,\n    requestBody: {\n      model: \"claude-sonnet-4-6\",\n      max_tokens: 4096,\n      system: systemPrompt,\n      messages: [\n        { role: \"user\", content: userPrompt }\n      ]\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -192
+      ],
+      "id": "dd8fb513-c988-4086-80e5-65b75a5148ab",
+      "name": "Prompt (Final Summarize)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const placeName = $('Loop Over Places').item.json.name;\nconst placeID = $('Loop Over Places').item.json.place_id;\n\nconst reviewsText = items.map((item, idx) =>\n  `[${idx + 1}] ★${item.json.stars} ${item.json.text}`\n).join('\\n\\n');\n\nconst systemPrompt = `你是一位質性資料整理人員，負責從一批 Google Maps 評論中，依面向抽取觀點。\n請用繁體中文輸出。評論語言可能混合中、英、日文，一律用繁體中文描述，但引述保留原文。\n這是「分批處理」的其中一批，你只看到部分評論，因此：\n- 盡量完整抽取這批中出現的不同觀點（3~12個），不要做抽象概念性的整合。\n- 每個觀點用一個短句（建議 12 字以內）描述，只表達單一核心意思，不要在一個觀點裡塞進多個重點。若一則評論講到多個不同重點，請拆成多個觀點。\n- quote 必須是真正支持該觀點的原文。若這批中找不到能直接佐證該觀點的引述，寧可不列出這個觀點，也不要勉強配不相關的引述。\n- 每個觀點附上至少 1 則代表性原文引述（保留原文語言）。引述若過長，可截取最相關的二至三句，不需完整貼上整則評論。\n- 針對每個觀點，標註它在這批中的普遍程度，只能從三個等級擇一填入 prevalence 欄位：「普遍」（大多數評論都提到）、「部分」（一些評論提到）、「少數」（只有零星評論提到）。不要給百分比或任何具體數字。\n- 若某面向在這批中沒有任何相關評論，該面向回傳空陣列。\n- quote 內若包含雙引號（\" 或 \"），請一律改寫成全形引號「」或直接省略該引號，避免破壞 JSON 格式。引述中也不要包含未跳脫的特殊符號。\n\n嚴格按照以下 JSON 格式輸出，禁止任何額外文字、解釋或 markdown code block：\n{\n  \"place_name\": \"${placeName}\",\n  \"aspects\": {\n    \"A_facility\": {\n      \"pros\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}],\n      \"cons\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}]\n    },\n    \"B_historical_meaning\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}],\n    \"C_emotion\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}],\n    \"D_moral\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}],\n    \"E_space_value\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}],\n    \"F_political\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}],\n    \"G_other\": [{\"point\":\"\",\"prevalence\":\"\",\"quote\":\"\"}]\n  }\n}`;\n\nconst userPrompt = `以下是評論對象「${placeName}」的一批 Google Maps 評論。\n請依下列面向抽取觀點。面向定義：\n\nA. 場所與設施體驗（單純評價）：觀光、建築、展覽、交通、環境、服務等實際體驗。區分 pros（優點）與 cons（缺點）。\nB. 歷史意義（認知）：對此場所歷史價值、教育功能、紀念意義的理解。\nC. 情緒（主觀感受）：評論者表達的情緒與心理感受，如震撼、悲傷、感動、莊嚴、緬懷。\nD. 道德評價：對歷史人物、制度、事件或行為的道德判斷。\nE. 空間場所評價：此場所作為公共空間、紀念場所或文化資產的角色與價值。\nF. 政治表態：對當下政治議題、政權、歷史人物或政策的支持、反對或立場。\nG. 其他：上述未涵蓋但反覆出現的其他面向，特定活動或事件引來的一批同質性評論，或是具特殊意義的少數觀點，如打卡活動、校外教學、異國視角。如果你處理的評論中，有非中文語言的評論，請特別保留其中幾則。\n\n以下是這批評論：\n${reviewsText}`;\n\nreturn [{\n  json: {\n    place_name: placeName,\n    place_id: placeID,\n    batch_number: $('Loop over Reviews').context.currentRunIndex + 1,\n    review_count: items.length,\n    requestBody: {\n      model: \"claude-haiku-4-5\",\n      max_tokens: 10000,\n      temperature: 0,\n      system: systemPrompt,\n      messages: [\n        { role: \"user\", content: userPrompt }\n      ]\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        160
+      ],
+      "id": "a9f91c85-f06e-4895-8ad5-9c8a0279e868",
+      "name": "Prompt (Batch Summarize)"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1dTib9W_pivPkdCfw3WMM-br18LVKptgY63fKVNIc7Mo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "places",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "place_id": "={{ $json.place_id }}",
+            "summarize": "done",
+            "summary": "={{ $json.summary }}"
+          },
+          "matchingColumns": [
+            "place_id"
+          ],
+          "schema": [
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "url_short",
+              "displayName": "url_short",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "place_id",
+              "displayName": "place_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_scrape_time",
+              "displayName": "last_scrape_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "summarize",
+              "displayName": "summarize",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1760,
+        -192
+      ],
+      "id": "64fcdb41-2635-4faa-b2d7-f306503dbc94",
+      "name": "Update Sheet",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const content = data?.content?.[0]?.text;\n\n  const placeID = $('Prompt (Final Summarize)').item.json.place_id;\n  const placeName = $('Prompt (Final Summarize)').item.json.place_name;\n\n  if (!content) {\n    out.push({ json: { place_id: placeID, place_name: placeName,\n      error: \"No content in Anthropic response\", raw: data } });\n    continue;\n  }\n\n  out.push({\n    json: {\n      place_id: placeID.toString().trim(),\n      place_name: placeName,\n      summary: content.trim()\n    }\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -192
+      ],
+      "id": "b9d2176e-801f-43ba-8eab-801b0be457b8",
+      "name": "Parse Summary"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1280,
+        160
+      ],
+      "id": "767a4c44-73c6-4350-b0fb-80a3d4d479f4",
+      "name": "Haiku Summarize",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1k55l5XCr5weNZXQ",
+          "name": "Claude (R06)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1440,
+        -192
+      ],
+      "id": "31722f5f-b1c9-455a-8556-9fca9a73f0ed",
+      "name": "Sonnet Summarize",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1k55l5XCr5weNZXQ",
+          "name": "Claude (R06)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const total = items.length;\n\n// 目標批次大小：100~200，盡量讓每批均等\nlet batchSize;\n\nif (total <= 200) {\n  // 少於 200 則: 全部跑一批就夠\n  batchSize = total;\n} else {\n  // 計算需要幾批，每批不超過 200\n  const minBatches = Math.ceil(total / 200);\n  batchSize = Math.ceil(total / minBatches);\n}\n\n// 把 batchSize 寫回每個 item（Loop over Reviews 的 Batch Size 要用 expression 讀這個值）\nreturn items.map(item => ({\n  json: {\n    ...item.json,\n    batch_size: batchSize,\n    total_reviews: total\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        96
+      ],
+      "id": "fd1aac77-e1d9-4404-89ca-30715cd5d7e6",
+      "name": "Calculate Batch Size"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Places",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Places": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Select Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Reviews": {
+      "main": [
+        [
+          {
+            "node": "Calculate Batch Size",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop over Reviews": {
+      "main": [
+        [
+          {
+            "node": "Select Map Summaries",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prompt (Batch Summarize)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop over Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Map Summaries": {
+      "main": [
+        [
+          {
+            "node": "Prompt (Final Summarize)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt (Final Summarize)": {
+      "main": [
+        [
+          {
+            "node": "Sonnet Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt (Batch Summarize)": {
+      "main": [
+        [
+          {
+            "node": "Haiku Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Places",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Summary": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Haiku Summarize": {
+      "main": [
+        [
+          {
+            "node": "Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sonnet Summarize": {
+      "main": [
+        [
+          {
+            "node": "Parse Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Batch Size": {
+      "main": [
+        [
+          {
+            "node": "Loop over Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "524434f9-68c9-4431-b519-01e77153b805",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0302975f56732b6bf6da221aef521718487052689d97f87adec6ff7f13a8ed4b"
+  },
+  "id": "HyG8aGePrqgPbkxu",
+  "tags": []
+}

@@ -1,0 +1,2955 @@
+{
+  "name": "Google Maps Reviews Annotator",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Google Map Reviews Annotation",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Dataset",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "batch1_train"
+                  },
+                  {
+                    "option": "batch2_validate"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "LLM",
+              "fieldType": "checkbox",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Gemini 3.1 Flash-Lite"
+                  },
+                  {
+                    "option": "Gemini 3.1 Flash-Lite (Batch-5)"
+                  },
+                  {
+                    "option": "Gemini 3.1 Flash-Lite (Batch-12)"
+                  },
+                  {
+                    "option": "GPT-OSS-120B"
+                  },
+                  {
+                    "option": "Claude Sonnet 4.6"
+                  },
+                  {
+                    "option": "Claude Haiku 4.5"
+                  },
+                  {
+                    "option": "Claude Haiku 4.5 (Batch-5)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        336,
+        16
+      ],
+      "id": "4c8b936f-a754-40c8-b001-4302a93ae028",
+      "name": "On form submission",
+      "webhookId": "e32baea9-0cd1-4397-9218-d4bf91820cc3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// 1. Dataset → sheet name mapping\nconst sheetMap = {\n  \"batch1_train\": \"batch1_train\",\n  \"batch2_validate\": \"batch2_validate\"\n};\n\n// 2. 設定 sheet & codebook (default to ___)\nconst dataset = item.Dataset;\nconst sheet = sheetMap[dataset];\nconst codebook = \"暗黑襲產評論_Codebook\";\n\n// 3. LLM model\nconst modelsToRun = item.LLM;  // default\n\n// 4. expand 成多筆任務 items\nreturn modelsToRun.map(m => {\n  return {\n    json: {\n      sheet: sheet,\n      codebook : codebook,\n      model_key: m,\n      task_id: `${dataset}_${m}`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        -64
+      ],
+      "id": "e80e6e1d-e228-4c65-9f23-53e8496ded6c",
+      "name": "Setting Task(s)"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.codebook }}",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $('Set-up Configurations').first().json.drive_folder_id }}",
+            "mode": "id"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1072,
+        384
+      ],
+      "id": "15f5d4f9-2738-4ff4-b1e5-4a0637f2167c",
+      "name": "Search Codebook",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "OFjOfGOtvcxsO81C",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "={{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        384
+      ],
+      "id": "412676c2-301e-4a67-b3c1-ff9f046754f6",
+      "name": "Get Codebook",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "tmP3BSBs3qsjbrCO",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        -512
+      ],
+      "id": "3c394483-8a9b-4faf-8e4c-b1124b60a1ff",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1408,
+        48
+      ],
+      "id": "f592b1d3-1133-44f1-95da-53c769f4ff3f",
+      "name": "Merge Task Info"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        16
+      ],
+      "id": "8f5ae7c3-d089-4e3c-a78a-cf8433370329",
+      "name": "Merge: Only Tasks"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        448
+      ],
+      "id": "14d843a5-a6a7-4eac-add9-ea23c192434c",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        192
+      ],
+      "id": "9a6f123a-8c97-4c3d-813c-fc0d5d28f282",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\nconst processedItems = $input.all();\n\nreturn processedItems.map((item) => {\n  const row = item.json;\n  const place_name = row.place_name;\n  const review_id = row.review_id;\n  const text = row.text;\n  const codebookText = row.content;\n\n  const annotatePrompt = `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響。\n  \n## 編碼簿\n${codebookText}\n\n${reasonPrompt}\n\n## 待標註評論內容 (place_name = ${place_name}, review_id = ${review_id})\n${text}`;\n\n  return {\n    json: {\n      review_id: row.review_id,\n      sheet: row.sheet,\n      model: row.model_key,\n      requestBody: {\n        model: \"gpt-oss-120b\",\n        messages: [\n          {\n            role: \"system\",\n            content: systemPrompt\n          },\n          {\n            role: \"user\",\n            content: annotatePrompt\n          }\n        ],\n        temperature: 0,\n        max_completion_tokens: 8192,\n        stream: false,\n        response_format: { type: \"json_object\" }\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        176
+      ],
+      "id": "aa68e7ab-6944-4bef-afc9-6a2b1bf23661",
+      "name": "Prompt: GPT",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  // Groq / OpenAI 回應路徑\n  const content = data?.choices?.[0]?.message?.content;\n\n  if (!content) {\n    out.push({ json: { error: \"No content in choices[0].message.content\", raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  // finishReason 檢查\n  const finishReason = data?.choices?.[0]?.finish_reason;\n  if (finishReason !== 'stop') {\n    out.push({ json: { error: `Unexpected finish_reason: ${finishReason}`, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (const ann of annotations) {\n    const row = {\n      review_id: $('Loop Over Items2').item.json.review_id ?? ann.review_id ?? item.json.review_id ?? null,\n      model: data?.model ?? item.json.model ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        208
+      ],
+      "id": "825ed160-b01f-4f65-93ae-b0edbc45608d",
+      "name": "Parse: GPT"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "GPT",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        208
+      ],
+      "id": "393409db-f30a-4d96-add7-99b7328acd6c",
+      "name": "Write Results: GPT",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "95e226c5-02dc-4874-a258-e6ab8fff9574",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Gemini 3.1 Flash-Lite",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Gemini"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a368ba5d-97d7-4839-824e-042e3870b4da",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Gemini 3.1 Flash-Lite (Batch-5)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Gemini-5"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e2256342-eba7-4e71-b58e-d31cf73bc73b",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Gemini 3.1 Flash-Lite (Batch-12)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Gemini-12"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "GPT-OSS-120B",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9c904bf8-effc-4afe-85b9-af5d48d2c423"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GPT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6831594d-a342-4614-aa2a-9f6e409593f4",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Claude Sonnet 4.6",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sonnet"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "405fdd3c-7c5f-4b4d-a569-9e96cb9b3028",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Claude Haiku 4.5",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Haiku"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b97b91a5-5595-4112-95cd-a10a0fd462b8",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Claude Haiku 4.5 (Batch-5)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Haiku-5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1664,
+        352
+      ],
+      "id": "9888248e-3ef9-4df7-beb9-2a924e2f8207",
+      "name": "Switch: LLM"
+    },
+    {
+      "parameters": {
+        "batchSize": "={{$input.all().length}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        880,
+        16
+      ],
+      "id": "60e22876-3ccc-407a-b8cd-332ba9781bc2",
+      "name": "Loop Over Tasks"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "GPT",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        272
+      ],
+      "id": "59c0d3c0-c751-4930-958a-3659b974fd02",
+      "name": "Get current results: GPT",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cerebras.ai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2512,
+        208
+      ],
+      "id": "ff60d92f-a965-45fc-9f84-5b7dd043ebc5",
+      "name": "Annotate: GPT",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "L2KuRMIinKw1HOIW",
+          "name": "Cerebras R06"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.name }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1248,
+        144
+      ],
+      "id": "73b7828d-7344-40d1-a599-39b94676a58e",
+      "name": "Get Reviews",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1424,
+        368
+      ],
+      "id": "d77de7a6-e4ea-40ae-b48c-99e39fd03b02",
+      "name": "Merge: Reviews & Codebook"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        -512
+      ],
+      "id": "7483e930-cf0f-480b-b0b0-a6536c643a1c",
+      "name": "Remove Duplicates"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        192
+      ],
+      "id": "3c647783-2c9c-4e7e-b2e5-a96b53b3b80d",
+      "name": "Remove Duplicates1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        448
+      ],
+      "id": "b34ed4b6-9bde-464b-acd0-a6f7f67fa41d",
+      "name": "Remove Duplicates2"
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3904,
+        688
+      ],
+      "id": "fb8efadd-77f6-46b1-a1b6-78d7b29d0374",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\n\nconst processedItems = $input.all();\n\nreturn processedItems.map((item) => {\n  const row = item.json;\n  const place_name = row.place_name;\n  const review_id = row.review_id;\n  const text = row.text;\n  const codebookText = row.content;\n\n  const annotatePrompt = `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響。\n\n## 編碼簿\n${codebookText}\n\n${reasonPrompt}\n\n## 待標註評論內容 (place_name = ${place_name}, review_id = ${review_id})\n\n${text}`;\n\n  return {\n    json: {\n      review_id: row.review_id,\n      sheet: row.sheet,\n      model: row.model_key,\n\n      requestBody: {\n        systemInstruction: {\n          parts: [\n            { text: systemPrompt }\n          ]\n        },\n        contents: [\n          {\n            role: \"user\",\n            parts: [\n              { text: annotatePrompt }\n            ]\n          }\n        ],\n        generationConfig: {\n          temperature: 0,\n          maxOutputTokens: 8192,\n          responseMimeType: \"application/json\"\n        }\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        -528
+      ],
+      "id": "54253eb4-3433-4442-9162-922993a6849d",
+      "name": "Prompt: Gemini",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemini",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        -432
+      ],
+      "id": "b0988eb3-0bc9-495b-84d9-309c7092e6b1",
+      "name": "Get current results: Gemini",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2512,
+        -496
+      ],
+      "id": "9aec1b91-caca-4189-aef7-37bd643d3172",
+      "name": "Annotate: Gemini",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RFZ7EpUakQSRQjLc",
+          "name": "Google AI Studio R06"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  // Gemini 回應路徑\n  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;\n\n  if (!content) {\n    out.push({ json: { error: \"No content in candidates[0].content.parts[0].text\", raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (const ann of annotations) {\n    const row = {\n      review_id: $('Loop Over Items').item.json.review_id ?? ann.review_id ?? item.json.review_id ?? null,\n      model: $input.first().json.modelVersion ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        -496
+      ],
+      "id": "13935ba4-93ed-4f9f-a6e1-1fd9a21a9a66",
+      "name": "Parse: Gemini"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemini",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        -496
+      ],
+      "id": "68dfc6af-a1c3-4c0e-a408-d40c8f32235a",
+      "name": "Write Results: Gemini",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 6
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2992,
+        -496
+      ],
+      "id": "78bbba1d-72bf-42b4-8f1e-91dff497649e",
+      "name": "Wait 6s",
+      "webhookId": "326a4977-998c-41bf-b5de-ec21d59eb103"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = '{{ $json.sheet }}'",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $('Set-up Configurations').first().json.drive_folder_id }}",
+            "mode": "id"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1072,
+        144
+      ],
+      "id": "aec396b2-7ded-41bb-9159-5453321f05c9",
+      "name": "Search Reviews",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "OFjOfGOtvcxsO81C",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemini-5",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1856,
+        -272
+      ],
+      "id": "a6e012c8-1899-4a78-a04c-1619864c4ead",
+      "name": "Get current results: Gemini-5",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        -256
+      ],
+      "id": "ee77f493-acc3-40bd-b639-d5e2394bf8e8",
+      "name": "Remove Duplicates3"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        -256
+      ],
+      "id": "0bea8669-44e4-45c3-975b-6ef4e36160ed",
+      "name": "Loop (5 Reviews)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\nconst processedItems = $input.all();\n\n// codebook 只取一次（所有筆共用）\nconst codebookText = processedItems[0].json.content;\n\n// 組合多筆評論內容\nconst reviewsText = processedItems.map((item) => {\n  const row = item.json;\n  return `### place_name: ${row.place_name} | review_id: ${row.review_id}\\n${row.text}`;\n}).join('\\n\\n');\n\nconst annotatePrompt = `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響。如果你一次收到多則評論，輸出標註結果的順序，請完全依照評論內容輸入的順序。\n\n## 編碼簿\n${codebookText}\n${reasonPrompt}\n\n## 待標註評論內容（共 ${processedItems.length} 則）\n${reviewsText}\n`;\n\nconst firstRow = processedItems[0].json;\n\nreturn [{\n  json: {\n    sheet: firstRow.sheet,\n    model: firstRow.model_key,\n    review_ids: processedItems.map(item => item.json.review_id), \n    requestBody: {\n      systemInstruction: {\n        parts: [\n          { text: systemPrompt }\n        ]\n      },\n      contents: [\n        {\n          role: \"user\",\n          parts: [\n            { text: annotatePrompt }\n          ]\n        }\n      ],\n      generationConfig: {\n        temperature: 0,\n        maxOutputTokens: 8192,\n        responseMimeType: \"application/json\"\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        -240
+      ],
+      "id": "ae4ed321-a5c8-47e8-a0be-cb114af32c6d",
+      "name": "Prompt Gemini-5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2672,
+        -240
+      ],
+      "id": "e61affd0-9cd8-4b27-b33b-6f10335045b2",
+      "name": "Annotate: Gemini-5",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RFZ7EpUakQSRQjLc",
+          "name": "Google AI Studio R06"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\nconst reviewIds = $('Prompt Gemini-5').first().json.review_ids ?? [];\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (!content) {\n    out.push({ json: { error: \"No content in candidates[0].content.parts[0].text\", raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (let i = 0; i < annotations.length; i++) {\n    const ann = annotations[i];\n    const row = {\n      review_id: reviewIds[i] ?? ann.review_id ?? null,\n      model: $input.first().json.modelVersion ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        -240
+      ],
+      "id": "7c8a3fc0-e050-4e69-b826-734f85bd92f6",
+      "name": "Parse: Gemini-5"
+    },
+    {
+      "parameters": {
+        "amount": 6
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3184,
+        -240
+      ],
+      "id": "754b2159-a322-41f6-a259-d7430cc38a9e",
+      "name": "Wait 6s1",
+      "webhookId": "1ee553b0-a718-47b0-9655-0678ac9d9b2f"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemini-5",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frame",
+              "displayName": "frame",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frame_reason",
+              "displayName": "frame_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "eval_tone",
+              "displayName": "eval_tone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "eval_tone_reason",
+              "displayName": "eval_tone_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stance",
+              "displayName": "stance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stance_reason",
+              "displayName": "stance_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "pos",
+              "displayName": "pos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "neg",
+              "displayName": "neg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "redemptive",
+              "displayName": "redemptive",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "guidance_mention",
+              "displayName": "guidance_mention",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "guidance_eval",
+              "displayName": "guidance_eval",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3008,
+        -240
+      ],
+      "id": "129fa0a6-6939-461a-b647-a46076e4c4f7",
+      "name": "Write Results: Gemini-5",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4db20660-9489-4e62-ad31-588649fd160c",
+              "name": "system_prompt",
+              "value": "={{\n  $json.Dataset === \"batch1_train\"\n  ? `## 回傳格式\n只輸出 JSON，禁止任何額外文字、解釋。個別變數的標註結果必須嚴格遵守規範的格式，不要輸出多餘的說明。\n請嚴格遵守以下回傳格式:\n{\n  \"annotations\": [\n    {\n      \"review_id\": string,\n      \"frame\": 0|1|2|3,\n      \"frame_reason\": string,\n      \"eval_tone\": 1|2|9,\n      \"eval_tone_reason\": string,\n      \"stance\": 1|2|3,\n      \"stance_reason\": string,\n      \"pos\": 0|1,\n      \"neg\": 0|1,\n      \"redemptive\": 0|1|2,\n      \"guidance_mention\": 0|1,\n      \"guidance_eval\": 1|2|3|9,\n      \"note\": string\n    }\n  ]\n}`\n  :$json.Dataset === \"batch2_validate\"\n  ? `## 回傳格式\n只輸出 JSON，禁止任何額外文字、解釋。個別變數的標註結果必須嚴格遵守規範的格式，不要輸出多餘的說明。\n請嚴格遵守以下回傳格式:\n{\n  \"annotations\": [\n    {\n      \"review_id\": string,\n      \"frame\": 0|1|2|3,\n      \"frame_reason\": string,\n      \"hist_engagement\": 0|1|2,\n      \"tj_truth\": 0|1,\n      \"tj_victim\": 0|1,\n      \"tj_perpetrator\": 0|1,\n      \"tj_recurrence\": 0|1,\n      \"tj_values\": 0|1,\n      \"auth_attitude\": 0|1|2|3,\n      \"auth_attitude_reason\": string,\n      \"personal_nostalgia\": 0|1,\n      \"pos\": 0|1,\n      \"neg\": 0|1,\n      \"supernatural\": 0|1,\n      \"guidance_mention\": 0|1,\n      \"guidance_eval\": 1|2|3|9,\n      \"note\": string\n    }\n  ]\n}`\n\n  : `## 回傳格式\n只輸出 JSON，禁止任何額外文字、解釋。個別變數的標註結果必須嚴格遵守規範的格式，不要輸出多餘的說明。`\n}}",
+              "type": "string"
+            },
+            {
+              "id": "38b815ae-5626-4b5f-b358-44dd45cb169b",
+              "name": "output_sheetid",
+              "value": "={{\n  $json.Dataset === \"batch1_train\"\n  ? \"1nS9JMXmPIuksMDLeSZiEeVK-XGL6hc8jtcN79w_FAxU\"\n\n  :$json.Dataset === \"batch2_validate\"\n  ? \"1TXEGAuRwm3uvnC-R2L9ZmbDT-Dv71ScG8HHNoOLynGM\"\n\n  : \"Unknown\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "449e3911-3bbe-4780-900b-e069b17601c2",
+              "name": "reason_llm",
+              "value": "={{\n  $json.Dataset === \"batch1_train\"\n    ? \"除了編碼簿中的變數外，請再以繁體中文提供你標註 frame, eval_tone, stance 的理由，用一句話說明，分別紀錄於 frame_reason, eval_tone_reason, stance_reason 變數。\"\n\n    : $json.Dataset === \"batch2_validate\"\n    ? \"除了編碼簿中的變數外，請再以繁體中文提供你標註 frame, auth_attitude 的理由，用一句話說明，分別紀錄於 frame_reason, auth_attitude_reason 變數。\"\n\n      : \"\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "27452204-2120-44c4-865e-ee9078940aeb",
+              "name": "variables",
+              "value": "={{\n  $json.Dataset === \"batch1_train\"\n    ? [\"frame\", \"frame_reason\", \"eval_tone\", \"eval_tone_reason\", \"stance\", \"stance_reason\", \"pos\", \"neg\", \"redemptive\", \"guidance_mention\", \"guidance_eval\", \"note\"]\n\n  : $json.Dataset === \"batch2_validate\"\n      ? [\"frame\", \"frame_reason\", \"hist_engagement\", \"tj_truth\", \"tj_victim\", \"tj_perpetrator\", \"tj_recurrence\", \"tj_values\", \"auth_attitude\", \"auth_attitude_reason\", \"personal_nostalgia\", \"pos\", \"neg\", \"supernatural\", \"guidance_mention\", \"guidance_eval\", \"note\"]\n\n      : []\n}}",
+              "type": "string"
+            },
+            {
+              "id": "72da5f4b-35c4-4501-b19b-bed45814a830",
+              "name": "drive_folder_id",
+              "value": "={{\n  $json.Dataset === \"batch1_train\"\n  ? \"1-u6-LTEM4Sxxztb5ED-SN0Pt0yOn-nKC\"\n\n  :$json.Dataset === \"batch2_validate\"\n  ? \"17LGGawJFwTU1RDG4cqPA06ROlh-J7mnw\"\n\n  : \"Unknown\"\n}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        528,
+        96
+      ],
+      "id": "7246812a-29e8-4c90-bdfe-09d9a7775ba8",
+      "name": "Set-up Configurations"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\n\nconst processedItems = $input.all();\n\nreturn processedItems.map((item) => {\n  const row = item.json;\n  const review_id = row.review_id;\n  const text = row.text;\n  const codebookText = row.content;\n\n  const annotatePrompt = `你是一位社群媒體內容標註人員，請依照編碼簿的規則，對每一則社群媒體內容進行標註。\n\n## 編碼簿\n${codebookText}\n\n${reasonPrompt}\n\n## 待標註社群內容 (review_id = ${review_id})\n${text}`;\n\n  return {\n    json: {\n      review_id: row.review_id,\n      sheet: row.sheet,\n      model: row.model_key,\n      \n      requestBody: {\n        model: \"claude-sonnet-4-6\",\n        max_tokens: 8192,\n        temperature: 0,\n        system: systemPrompt,\n        messages: [\n          {\n            role: \"user\",\n            content: annotatePrompt\n          }\n        ]\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        432
+      ],
+      "id": "8ca61b37-7985-43d2-8d9c-9dcfdd605030",
+      "name": "Prompt: Sonnet",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sonnet",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        544
+      ],
+      "id": "faa5ca89-e94f-4536-b93c-fff1b71ab2a1",
+      "name": "Get current results: Sonnet",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2512,
+        464
+      ],
+      "id": "a923e2be-7c61-4a77-a5bb-4dbe86afe610",
+      "name": "Annotate: Sonnet",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1k55l5XCr5weNZXQ",
+          "name": "Claude (R06)"
+        },
+        "httpBearerAuth": {
+          "id": "OFytpFRHoOxom7TW",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  // Anthropic / Sonnet 回應路徑\n  const content = data?.content?.[0]?.text;\n\n  if (!content) {\n    out.push({ json: { error: \"No content in content[0].text\", raw: data } });\n    continue;\n  }\n\n  // finishReason 檢查\n  const stopReason = data?.stop_reason;\n  if (stopReason !== 'end_turn') {\n    out.push({ json: { error: `Unexpected stop_reason: ${stopReason}`, raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (const ann of annotations) {\n    const row = {\n      review_id: $('Loop Over Items1').item.json.review_id ?? ann.review_id ?? item.json.review_id ?? null,\n      model: data?.model ?? item.json.model ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        464
+      ],
+      "id": "f87b2d3e-b623-4013-ab54-25b4fdbc5df5",
+      "name": "Parse: Sonnet"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sonnet",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        464
+      ],
+      "id": "1a5937f5-106e-465c-b132-533f6d718982",
+      "name": "Write Results: Sonnet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2992,
+        208
+      ],
+      "id": "53a29e4f-d198-4dba-a4ce-c71fbab3d709",
+      "name": "Wait 15s",
+      "webhookId": "2d7007f5-7192-4708-8582-9886e0f35be4"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2992,
+        464
+      ],
+      "id": "3f245792-2ffe-489a-8525-b55c1bbc2856",
+      "name": "Wait 2s",
+      "webhookId": "8b702424-5630-41eb-9861-31e5f21937a6"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        720
+      ],
+      "id": "0f5e9b19-d428-4076-8632-b6d155c01712",
+      "name": "Loop Over Items3"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        720
+      ],
+      "id": "d84feab7-d625-42b4-8553-65bc7ade6d2e",
+      "name": "Remove Duplicates4"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2992,
+        736
+      ],
+      "id": "48be6faa-d332-426e-ac19-b790370a0587",
+      "name": "Wait 2s1",
+      "webhookId": "8b702424-5630-41eb-9861-31e5f21937a6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\n\nconst processedItems = $input.all();\n\nreturn processedItems.map((item) => {\n  const row = item.json;\n  const review_id = row.review_id;\n  const text = row.text;\n  const codebookText = row.content;\n\n  const annotatePrompt = `你是一位社群媒體內容標註人員，請依照編碼簿的規則，對每一則社群媒體內容進行標註。\n\n## 編碼簿\n${codebookText}\n\n${reasonPrompt}\n\n## 待標註社群內容 (review_id = ${review_id})\n${text}`;\n\n  return {\n    json: {\n      review_id: row.review_id,\n      sheet: row.sheet,\n      model: row.model_key,\n      \n      requestBody: {\n        model: \"claude-haiku-4-5\",\n        max_tokens: 8192,\n        temperature: 0,\n        system: systemPrompt,\n        messages: [\n          {\n            role: \"user\",\n            content: annotatePrompt\n          }\n        ]\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        704
+      ],
+      "id": "ae53808b-0e2a-4cd4-949b-4bc56ccd1419",
+      "name": "Prompt: Haiku",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Haiku",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        816
+      ],
+      "id": "26f331a7-fc68-4e89-81c0-aa74284f54e6",
+      "name": "Get current results: Haiku",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2512,
+        736
+      ],
+      "id": "8cd8e90c-3cf8-4756-b47e-d6938d11d098",
+      "name": "Annotate: Haiku",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1k55l5XCr5weNZXQ",
+          "name": "Claude (R06)"
+        },
+        "httpBearerAuth": {
+          "id": "OFytpFRHoOxom7TW",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  // Anthropic / Sonnet 回應路徑\n  const content = data?.content?.[0]?.text;\n\n  if (!content) {\n    out.push({ json: { error: \"No content in content[0].text\", raw: data } });\n    continue;\n  }\n\n  // finishReason 檢查\n  const stopReason = data?.stop_reason;\n  if (stopReason !== 'end_turn') {\n    out.push({ json: { error: `Unexpected stop_reason: ${stopReason}`, raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (const ann of annotations) {\n    const row = {\n      review_id: $('Loop Over Items3').item.json.review_id ?? ann.review_id ?? item.json.review_id ?? null,\n      model: data?.model ?? item.json.model ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        736
+      ],
+      "id": "f39e158b-fd90-4ea9-a0df-080b872e396a",
+      "name": "Parse: Haiku"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Haiku",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frame",
+              "displayName": "frame",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frame_reason",
+              "displayName": "frame_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "eval_tone",
+              "displayName": "eval_tone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "eval_tone_reason",
+              "displayName": "eval_tone_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stance",
+              "displayName": "stance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stance_reason",
+              "displayName": "stance_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "pos",
+              "displayName": "pos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "neg",
+              "displayName": "neg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "redemptive",
+              "displayName": "redemptive",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "guidance_mention",
+              "displayName": "guidance_mention",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "guidance_eval",
+              "displayName": "guidance_eval",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2832,
+        736
+      ],
+      "id": "2fddfea5-3290-444e-8112-83cc90e4d14c",
+      "name": "Write Results: Haiku",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        1040
+      ],
+      "id": "8cd89970-3461-408d-a7ee-96ffc9155f21",
+      "name": "Remove Duplicates5"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        1040
+      ],
+      "id": "c951f4ef-0360-4791-b4b1-284b9026d702",
+      "name": "Loop (5 Reviews)1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Haiku-5",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1856,
+        1024
+      ],
+      "id": "a49762d8-af6e-4c03-970d-282f751b46ba",
+      "name": "Get current results: Haiku-5",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\nconst processedItems = $input.all();\n\nconst codebookText = processedItems[0].json.content;\n\nconst reviewsText = processedItems.map((item) => {\n  const row = item.json;\n  return `### place_name: ${row.place_name} | review_id: ${row.review_id}\\n${row.text}`;\n}).join('\\n\\n');\n\nconst annotatePrompt = `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響。如果你一次收到多則評論，輸出標註結果的順序，請完全依照評論內容輸入的順序。\n\n## 編碼簿\n${codebookText}\n\n${reasonPrompt}\n\n## 待標註評論內容（共 ${processedItems.length} 則）\n${reviewsText}\n`;\n\nconst firstRow = processedItems[0].json;\n\nreturn [{\n  json: {\n    sheet: firstRow.sheet,\n    model: firstRow.model_key,\n    review_ids: processedItems.map(item => item.json.review_id),\n    requestBody: {\n      model: \"claude-haiku-4-5-20251001\",\n      system: systemPrompt,\n      messages: [\n        {\n          role: \"user\",\n          content: annotatePrompt\n        }\n      ],\n      temperature: 0,\n      max_tokens: 8192\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        1056
+      ],
+      "id": "9ae119ef-bd50-40f7-b12e-1b5b902c4dbc",
+      "name": "Prompt Haiku-5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2672,
+        1056
+      ],
+      "id": "1cd014e0-92a1-47c2-9075-4f934ad77f89",
+      "name": "Annotate: Haiku-5",
+      "retryOnFail": true,
+      "waitBetweenTries": 3,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1k55l5XCr5weNZXQ",
+          "name": "Claude (R06)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\nconst reviewIds = $('Prompt Haiku-5').first().json.review_ids ?? [];\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  const content = data?.content?.[0]?.text;\n  if (!content) {\n    out.push({ json: { error: \"No content in content[0].text\", raw: data } });\n    continue;\n  }\n\n  const stopReason = data?.stop_reason;\n  if (stopReason !== 'end_turn') {\n    out.push({ json: { error: `Unexpected stop_reason: ${stopReason}`, raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (let i = 0; i < annotations.length; i++) {\n    const ann = annotations[i];\n    const row = {\n      review_id: reviewIds[i] ?? ann.review_id ?? null,\n      model: data?.model ?? item.json.model ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        1056
+      ],
+      "id": "91d3c74f-3a61-481f-9360-cd0f734fb565",
+      "name": "Parse: Haiku-5"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Haiku-5",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3008,
+        1056
+      ],
+      "id": "3e403a20-6a1b-4f72-b3ec-76bdd9f1da23",
+      "name": "Write Results: Haiku-5",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3184,
+        1056
+      ],
+      "id": "4f85cfd5-18e5-489a-878a-0c8b1f9aeb68",
+      "name": "Wait 2s2",
+      "webhookId": "1ee553b0-a718-47b0-9655-0678ac9d9b2f"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        -48
+      ],
+      "id": "92987dec-f40d-4b9a-b5d9-3ed62f206b8f",
+      "name": "Remove Duplicates6"
+    },
+    {
+      "parameters": {
+        "batchSize": 12,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2320,
+        -48
+      ],
+      "id": "6ca1b0e1-9e83-4b63-8009-537808af6781",
+      "name": "Loop (5 Reviews)2"
+    },
+    {
+      "parameters": {
+        "amount": 6
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3184,
+        -32
+      ],
+      "id": "5229587c-0e7b-476d-ae0a-f7321dc4966b",
+      "name": "Wait 6s2",
+      "webhookId": "1ee553b0-a718-47b0-9655-0678ac9d9b2f"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemini-12",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1856,
+        -64
+      ],
+      "id": "885b1a20-1ff4-438a-a9a6-c38d76093c60",
+      "name": "Get current results: Gemini-12",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\nconst processedItems = $input.all();\n\n// codebook 只取一次（所有筆共用）\nconst codebookText = processedItems[0].json.content;\n\n// 組合多筆評論內容\nconst reviewsText = processedItems.map((item) => {\n  const row = item.json;\n  return `### place_name: ${row.place_name} | review_id: ${row.review_id}\\n${row.text}`;\n}).join('\\n\\n');\n\nconst annotatePrompt = `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響。如果你一次收到多則評論，輸出標註結果的順序，請完全依照評論內容輸入的順序。\n\n## 編碼簿\n${codebookText}\n${reasonPrompt}\n\n## 待標註評論內容（共 ${processedItems.length} 則）\n${reviewsText}\n`;\n\nconst firstRow = processedItems[0].json;\n\nreturn [{\n  json: {\n    sheet: firstRow.sheet,\n    model: firstRow.model_key,\n    review_ids: processedItems.map(item => item.json.review_id), \n    requestBody: {\n      systemInstruction: {\n        parts: [\n          { text: systemPrompt }\n        ]\n      },\n      contents: [\n        {\n          role: \"user\",\n          parts: [\n            { text: annotatePrompt }\n          ]\n        }\n      ],\n      generationConfig: {\n        temperature: 0,\n        maxOutputTokens: 8192,\n        responseMimeType: \"application/json\"\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        -32
+      ],
+      "id": "092ee8bb-a1dd-46c9-94a4-42d7e9b84652",
+      "name": "Prompt Gemini-12"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2672,
+        -32
+      ],
+      "id": "8d20a991-1ac0-441e-a7fd-49448e96ce87",
+      "name": "Annotate: Gemini-12",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RFZ7EpUakQSRQjLc",
+          "name": "Google AI Studio R06"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\nconst reviewIds = $('Prompt Gemini-12').first().json.review_ids ?? [];\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (!content) {\n    out.push({ json: { error: \"No content in candidates[0].content.parts[0].text\", raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (let i = 0; i < annotations.length; i++) {\n    const ann = annotations[i];\n    const row = {\n      review_id: reviewIds[i] ?? ann.review_id ?? null,\n      model: $input.first().json.modelVersion ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        -32
+      ],
+      "id": "4c664502-a633-48aa-be32-badccc1b182a",
+      "name": "Parse: Gemini-12"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Set-up Configurations').first().json.output_sheetid }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemini-12",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3008,
+        -32
+      ],
+      "id": "7384de2d-f73b-4e26-a2a7-8682fbb7ac19",
+      "name": "Write Results: Gemini-12",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Setting Task(s)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set-up Configurations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setting Task(s)": {
+      "main": [
+        [
+          {
+            "node": "Merge: Only Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Codebook": {
+      "main": [
+        [
+          {
+            "node": "Get Codebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Codebook": {
+      "main": [
+        [
+          {
+            "node": "Merge: Reviews & Codebook",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate: Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Task Info": {
+      "main": [
+        [
+          {
+            "node": "Merge: Reviews & Codebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge: Only Tasks": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ],
+        [
+          {
+            "node": "Annotate: Sonnet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ],
+        [
+          {
+            "node": "Annotate: GPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: GPT": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get current results: GPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: GPT": {
+      "main": [
+        [
+          {
+            "node": "Write Results: GPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: GPT": {
+      "main": [
+        [
+          {
+            "node": "Wait 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: LLM": {
+      "main": [
+        [
+          {
+            "node": "Prompt: Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get current results: Gemini-5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remove Duplicates3",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Get current results: Gemini-12",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remove Duplicates6",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Prompt: GPT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prompt: Sonnet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prompt: Haiku",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Remove Duplicates5",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Get current results: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Tasks": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Merge Task Info",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Codebook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: GPT": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Annotate: GPT": {
+      "main": [
+        [
+          {
+            "node": "Parse: GPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge Task Info",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge: Reviews & Codebook": {
+      "main": [
+        [
+          {
+            "node": "Switch: LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Gemini": {
+      "main": [
+        [
+          {
+            "node": "Get current results: Gemini",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Gemini": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Annotate: Gemini": {
+      "main": [
+        [
+          {
+            "node": "Parse: Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Gemini": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Gemini": {
+      "main": [
+        [
+          {
+            "node": "Wait 6s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 6s": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Reviews": {
+      "main": [
+        [
+          {
+            "node": "Get Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Gemini-5": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates3": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (5 Reviews)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Prompt Gemini-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Gemini-5": {
+      "main": [
+        [
+          {
+            "node": "Annotate: Gemini-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate: Gemini-5": {
+      "main": [
+        [
+          {
+            "node": "Parse: Gemini-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Gemini-5": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Gemini-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 6s1": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Gemini-5": {
+      "main": [
+        [
+          {
+            "node": "Wait 6s1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set-up Configurations": {
+      "main": [
+        [
+          {
+            "node": "Merge: Only Tasks",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prompt: Sonnet": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get current results: Sonnet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Sonnet": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Annotate: Sonnet": {
+      "main": [
+        [
+          {
+            "node": "Parse: Sonnet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Sonnet": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Sonnet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Sonnet": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15s": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items3": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ],
+        [
+          {
+            "node": "Annotate: Haiku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates4": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Haiku": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get current results: Haiku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Haiku": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Annotate: Haiku": {
+      "main": [
+        [
+          {
+            "node": "Parse: Haiku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Haiku": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Haiku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Haiku": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates5": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (5 Reviews)1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ],
+        [
+          {
+            "node": "Prompt Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Annotate: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Parse: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s2": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates6": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (5 Reviews)2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prompt Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 6s2": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Annotate: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Parse: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Wait 6s2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "929d4147-74d3-48c9-9765-d0c472779bed",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0302975f56732b6bf6da221aef521718487052689d97f87adec6ff7f13a8ed4b"
+  },
+  "id": "oTARt1BuaV4EtNQ2",
+  "tags": []
+}

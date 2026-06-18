@@ -1,0 +1,831 @@
+{
+  "name": "Google Maps Reviews Scraper",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f0f66cc3-24a0-4ec8-8a4f-712be6078a6c",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4aa57ee9-4152-44e4-88e8-88c019718a28",
+      "name": "Loop Over Places",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -816,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "Xb8osYTtOjlsgI6k9",
+          "mode": "list",
+          "cachedResultName": "Google Maps Reviews Scraper (compass/Google-Maps-Reviews-Scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/Xb8osYTtOjlsgI6k9/input"
+        },
+        "customBody": "={{ $json.apifyInput }}",
+        "timeout": 3600,
+        "memory": 4096
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        144
+      ],
+      "id": "8ca44f2b-b453-45bd-8c6c-de1b84648b1b",
+      "name": "Run an Actor",
+      "credentials": {
+        "apifyApi": {
+          "id": "yozXXH9sweL3UJSq",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "inputtype",
+              "value": "textquery"
+            },
+            {
+              "name": "fields",
+              "value": "place_id"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -704,
+        -128
+      ],
+      "id": "425f7994-7af1-4416-9372-faab87df1585",
+      "name": "Get Place ID",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "amqHtHtHzSRYwZdQ",
+          "name": "Query Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1dTib9W_pivPkdCfw3WMM-br18LVKptgY63fKVNIc7Mo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "places",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "a3683065-3705-4fb1-9e65-60b1027e6982",
+      "name": "Read Place List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -992,
+        96
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "reviews",
+          "mode": "list",
+          "cachedResultName": "reviews"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_local_guide": "={{ $json.isLocalGuide }}",
+            "stars": "={{ $json.stars }}",
+            "reviews_count": "={{ $json.reviewsCount }}",
+            "place_id": "={{ $('Update Scrape Time').item.json.place_id }}",
+            "place_name": "={{ $('Update Scrape Time').item.json.name }}",
+            "city": "={{ $('Update Scrape Time').item.json.city }}",
+            "url_short": "={{ $('Update Scrape Time').item.json.url_short }}",
+            "reviewer_name": "={{ $json.name }}",
+            "text": "={{ $json.text }}",
+            "published_at": "={{ $json.publishedAtDate }}",
+            "likes_count": "={{ $json.likesCount }}",
+            "reviewer_number_of_reviews": "={{ $json.reviewerNumberOfReviews }}",
+            "review_origin": "={{ $json.reviewOrigin }}",
+            "language": "={{ $json.language }}",
+            "total_score": "={{ $json.totalScore }}",
+            "review_id": "={{ $json.reviewId }}",
+            "reviewer_id": "={{ $json.reviewerId }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "place_id",
+              "displayName": "place_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "place_name",
+              "displayName": "place_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url_short",
+              "displayName": "url_short",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_score",
+              "displayName": "total_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reviews_count",
+              "displayName": "reviews_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stars",
+              "displayName": "stars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "likes_count",
+              "displayName": "likes_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "review_origin",
+              "displayName": "review_origin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "published_at",
+              "displayName": "published_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewer_id",
+              "displayName": "reviewer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reviewer_name",
+              "displayName": "reviewer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewer_number_of_reviews",
+              "displayName": "reviewer_number_of_reviews",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_local_guide",
+              "displayName": "is_local_guide",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scraped_at",
+              "displayName": "scraped_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "skipOnConflict": true
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1056,
+        32
+      ],
+      "id": "cbb25319-6f94-4c1d-b1e1-88d09453e40a",
+      "name": "Insert Reviews",
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT MAX(published_at) as last_scraped\nFROM reviews\nWHERE place_id = '{{ $json.place_id }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -448,
+        144
+      ],
+      "id": "3001a2a7-7847-4ca5-b829-15b1f03319e7",
+      "name": "Query Last Review Date",
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lastScraped = $('Query Last Review Date').first().json.last_scraped;\n\nconst input = {\n  placeIds: [$('Update Scrape Time').first().json.place_id],\n  maxReviews: 3000,\n  reviewsSort: \"newest\", // or \"mostRelevant\"\n  language: \"zh-TW\",\n  reviewsOrigin: \"all\",\n  personalData: true\n};\n\n// 持續蒐集: 以目前資料庫中最新一則評論發布時間為起點\nif (lastScraped) {\n   input.reviewsStartDate = lastScraped;\n}\n// 如果 reviewsSort: \"mostRelevant\" 則不需要此變數\n\nreturn [{ json: { apifyInput: input } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        144
+      ],
+      "id": "9bedf7f8-8618-41c5-a932-881a96e05df0",
+      "name": "Build Actor Input"
+    },
+    {
+      "parameters": {
+        "resource": "Datasets",
+        "datasetId": "={{ $json.datasetId }}",
+        "offset": "={{ $json.offset }}",
+        "limit": "={{ $json.limit }}",
+        "options": {}
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        848,
+        32
+      ],
+      "id": "603f8bac-f74d-4333-a623-53bd8ab68e48",
+      "name": "Get dataset Items",
+      "credentials": {
+        "apifyApi": {
+          "id": "yozXXH9sweL3UJSq",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const totalReviews = $input.first().json.data.itemCount;\nconst datasetId = $input.first().json.data.id;\nconst batchSize = 1000;\nconst batches = Math.ceil(totalReviews / batchSize);\n\nif (batches === 0) {\n  return [{ json: { totalReviews: 0, datasetId: datasetId } }];\n}\n\nconst result = [];\nfor (let i = 0; i < batches; i++) {\n  result.push({\n    json: {\n      offset: i * batchSize,\n      limit: batchSize,\n      datasetId: datasetId,\n      totalReviews: totalReviews\n    }\n  });\n}\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        144
+      ],
+      "id": "4a396b60-7182-48e4-b5eb-1466c55400e3",
+      "name": "Calculate Batches"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/datasets/{{ $json.defaultDatasetId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        288,
+        144
+      ],
+      "id": "1c8d2e47-1b27-4e42-8a64-5e1c087f9780",
+      "name": "Get Review Count",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZcPzpibIsZiJLpQX",
+          "name": "Header Auth account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "71e4d64b-0339-48e7-89f5-28fc7bac6544",
+              "leftValue": "={{ $json.totalReviews }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        656,
+        144
+      ],
+      "id": "ea1c3b63-a61a-4a12-a9b5-911e79ea8c75",
+      "name": "If Has New Reviews"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1dTib9W_pivPkdCfw3WMM-br18LVKptgY63fKVNIc7Mo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "places",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "place_id": "={{ $json.place_id }}",
+            "last_scrape_time": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+            "city": "={{ $json.city }}",
+            "name": "={{ $json.name }}",
+            "url_short": "={{ $json.url_short }}"
+          },
+          "matchingColumns": [
+            "place_id"
+          ],
+          "schema": [
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "url_short",
+              "displayName": "url_short",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "place_id",
+              "displayName": "place_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_scrape_time",
+              "displayName": "last_scrape_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -624,
+        144
+      ],
+      "id": "9e17cc80-358a-4014-8730-7ae761f840db",
+      "name": "Update Scrape Time",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Dj4j1wA8i3MBk24m",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        144
+      ],
+      "id": "ba081bb5-3b6a-4e92-a2d3-565b70b05fc2",
+      "name": "Wait for Actor Finish (3s)",
+      "webhookId": "a329c0ff-aea8-4d06-a7a8-40a7cfa0007c"
+    },
+    {
+      "parameters": {},
+      "id": "245b4e16-8049-42e1-9409-f755b6acd536",
+      "name": "No New Review: Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        848,
+        240
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {},
+      "id": "76086089-6c4b-449d-b124-c15dfe2d9e38",
+      "name": "Done: Next Place",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        192
+      ],
+      "executeOnce": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Place List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Places": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Update Scrape Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor": {
+      "main": [
+        [
+          {
+            "node": "Wait for Actor Finish (3s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Place ID": {
+      "main": [
+        []
+      ]
+    },
+    "Read Place List": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Places",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Reviews": {
+      "main": [
+        [
+          {
+            "node": "Done: Next Place",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Last Review Date": {
+      "main": [
+        [
+          {
+            "node": "Build Actor Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Actor Input": {
+      "main": [
+        [
+          {
+            "node": "Run an Actor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get dataset Items": {
+      "main": [
+        [
+          {
+            "node": "Insert Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Batches": {
+      "main": [
+        [
+          {
+            "node": "If Has New Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Review Count": {
+      "main": [
+        [
+          {
+            "node": "Calculate Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Has New Reviews": {
+      "main": [
+        [
+          {
+            "node": "Get dataset Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Review: Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Scrape Time": {
+      "main": [
+        [
+          {
+            "node": "Query Last Review Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Actor Finish (3s)": {
+      "main": [
+        [
+          {
+            "node": "Get Review Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No New Review: Skip": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Places",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Done: Next Place": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Places",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8a41357e-6118-4927-a0e3-e11c7bc09f24",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0302975f56732b6bf6da221aef521718487052689d97f87adec6ff7f13a8ed4b"
+  },
+  "id": "IF9onr7FvNL0GGih",
+  "tags": []
+}

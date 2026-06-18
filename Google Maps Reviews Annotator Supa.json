@@ -1,0 +1,1629 @@
+{
+  "name": "Google Maps Reviews Annotator Supa",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Google Map Reviews Annotation",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "LLM",
+              "fieldType": "checkbox",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Gemini 3.1 Flash-Lite (Batch-12)"
+                  },
+                  {
+                    "option": "Claude Haiku 4.5 (Batch-5)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        432,
+        32
+      ],
+      "id": "794b21eb-0878-4a54-946d-e37c2d4f6419",
+      "name": "On form submission",
+      "webhookId": "3f16b06a-c2db-4f55-aeac-1bad09c2c3c8"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// 1. Dataset → sheet name mapping\nconst sheetMap = {\n  \"batch1_train\": \"batch1_train\",\n  \"batch2_validate\": \"batch2_validate\"\n};\n\n// 2. 設定 sheet & codebook (default to ___)\nconst dataset = item.Dataset;\nconst sheet = sheetMap[dataset];\nconst codebook = \"暗黑襲產評論_Codebook\";\n\n// 3. LLM model\nconst modelsToRun = item.LLM;  // default\n\n// 4. expand 成多筆任務 items\nreturn modelsToRun.map(m => {\n  return {\n    json: {\n      sheet: sheet,\n      codebook : codebook,\n      model_key: m,\n      task_id: `${dataset}_${m}`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -48
+      ],
+      "id": "d05ffb8b-221c-4be6-a831-a6d2d4fadfe3",
+      "name": "Setting Task(s)"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.codebook }}",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $('Set-up Configurations').first().json.drive_folder_id }}",
+            "mode": "id"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        368
+      ],
+      "id": "d126326f-e68f-4671-a174-a9eca34e4cac",
+      "name": "Search Codebook",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "OFjOfGOtvcxsO81C",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "={{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        368
+      ],
+      "id": "da5f045a-73eb-43b4-b5c8-ee72063f5181",
+      "name": "Get Codebook",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "tmP3BSBs3qsjbrCO",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1168,
+        16
+      ],
+      "id": "f8f1e8d5-4942-4f9c-a7e2-954f301f2666",
+      "name": "Merge Task Info"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        816,
+        32
+      ],
+      "id": "10aa8aab-55f6-4cb7-8c48-334f6f3ea29b",
+      "name": "Merge: Only Tasks"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e2256342-eba7-4e71-b58e-d31cf73bc73b",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Gemini 3.1 Flash-Lite (Batch-12)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Gemini-12"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b97b91a5-5595-4112-95cd-a10a0fd462b8",
+                    "leftValue": "={{ $json.model_key }}",
+                    "rightValue": "Claude Haiku 4.5 (Batch-5)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Haiku-5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1568,
+        304
+      ],
+      "id": "5853c3da-bd5a-43f1-94e5-cacd4abfd8c9",
+      "name": "Switch: LLM"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1392,
+        304
+      ],
+      "id": "9482607e-9144-4e1d-aa39-2c426e98b612",
+      "name": "Merge: Reviews & Codebook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4db20660-9489-4e62-ad31-588649fd160c",
+              "name": "system_prompt",
+              "value": "={{ \n`## 回傳格式\n只輸出 JSON，禁止任何額外文字、解釋。個別變數的標註結果必須嚴格遵守規範的格式，不要輸出多餘的說明。\n請嚴格遵守以下回傳格式:\n{\n  \"annotations\": [\n    {\n      \"review_id\": string,\n      \"frame\": 0|1|2|3,\n      \"frame_reason\": string,\n      \"hist_engagement\": 0|1|2,\n      \"tj_truth\": 0|1,\n      \"tj_victim\": 0|1,\n      \"tj_perpetrator\": 0|1,\n      \"tj_recurrence\": 0|1,\n      \"tj_values\": 0|1,\n      \"auth_attitude\": 0|1|2|3,\n      \"auth_attitude_reason\": string,\n      \"personal_nostalgia\": 0|1,\n      \"pos\": 0|1,\n      \"neg\": 0|1,\n      \"supernatural\": 0|1,\n      \"guidance_mention\": 0|1,\n      \"guidance_eval\": 1|2|3|9,\n      \"note\": string\n    }\n  ]\n}`\n}}",
+              "type": "string"
+            },
+            {
+              "id": "449e3911-3bbe-4780-900b-e069b17601c2",
+              "name": "reason_llm",
+              "value": "={{\n\"除了編碼簿中的變數外，請再分別針對每一則個別評論內容，以繁體中文提供你標註 frame, auth_attitude 的理由，用一句話說明，分別紀錄於 frame_reason, auth_attitude_reason 變數。注意不要混淆不同評論內容的標註理由。\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "27452204-2120-44c4-865e-ee9078940aeb",
+              "name": "variables",
+              "value": "={{\n [\"frame\", \"frame_reason\", \"hist_engagement\", \"tj_truth\", \"tj_victim\", \"tj_perpetrator\", \"tj_recurrence\", \"tj_values\", \"auth_attitude\", \"auth_attitude_reason\", \"personal_nostalgia\", \"pos\", \"neg\", \"supernatural\", \"guidance_mention\", \"guidance_eval\", \"note\"]\n}}",
+              "type": "string"
+            },
+            {
+              "id": "065c9251-6307-46c0-a162-c58644e57229",
+              "name": "drive_folder_id",
+              "value": "1fJGvpihXGc7TfSehjUNBktsn4up1_yJC",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        112
+      ],
+      "id": "5431b3c6-5e1b-426e-8470-dfe4cde7c45f",
+      "name": "Set-up Configurations"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\nconst processedItems = $input.all();\n\n// codebook 每筆共用\nconst codebookText = processedItems[0].json.content;\n\n// 組合多筆評論內容\nconst reviewsText = processedItems.map((item) => {\n  const row = item.json;\n  return `### place_name: ${row.place_name} | review_id: ${row.review_id} \\n\\n ${row.text}`;\n}).join('\\n\\n');\n\nconst firstRow = processedItems[0].json;\n\nreturn [{\n  json: {\n    sheet: firstRow.sheet,\n    model: firstRow.model_key,\n    review_ids: processedItems.map(item => item.json.review_id),\n    requestBody: {\n      model: \"claude-haiku-4-5-20251001\",\n      system: [\n        {\n          type: \"text\",\n          text: systemPrompt,\n          cache_control: { type: \"ephemeral\" }\n        }\n      ],\n      messages: [\n        {\n          role: \"user\",\n          content: [\n            {\n              type: \"text\",\n              text: `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響，並且請請完全依照評論內容輸入的順序，輸出標註的結果。輸出的 annotations 陣列長度必須剛好等於輸入評論則數,review_id 必須逐字複製自輸入,禁止重複任何 review_id。\\n\\n ## 編碼簿 \\n\\n${codebookText}\\n\\n${reasonPrompt}`,\n              cache_control: { type: \"ephemeral\" }\n            },\n            {\n              type: \"text\",\n              text: `## 待標註評論內容（共 ${processedItems.length} 則）\\n${reviewsText}`\n            }\n          ]\n        }\n      ],\n      temperature: 0,\n      max_tokens: 8192\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        512
+      ],
+      "id": "400676d5-a1d9-4153-b531-45060ce147f0",
+      "name": "Prompt Haiku-5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2672,
+        512
+      ],
+      "id": "63700c0e-6516-4d7a-8e49-6e88a1b214a0",
+      "name": "Annotate: Haiku-5",
+      "retryOnFail": true,
+      "waitBetweenTries": 3,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1k55l5XCr5weNZXQ",
+          "name": "Claude (R06)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\nconst reviewIds = $('Prompt Haiku-5').first().json.review_ids ?? [];\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  const content = data?.content?.[0]?.text;\n  if (!content) {\n    out.push({ json: { error: \"No content in content[0].text\", raw: data } });\n    continue;\n  }\n\n  const stopReason = data?.stop_reason;\n  if (stopReason !== 'end_turn') {\n    out.push({ json: { error: `Unexpected stop_reason: ${stopReason}`, raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (let i = 0; i < annotations.length; i++) {\n    const ann = annotations[i];\n    const row = {\n      review_id: reviewIds[i] ?? null,\n      review_id_llm: ann.review_id ?? null, \n      model: data?.model ?? item.json.model ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2848,
+        512
+      ],
+      "id": "e3e00946-a57d-4215-a703-b33456deb2f5",
+      "name": "Parse: Haiku-5"
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = $('Set-up Configurations').first().json.system_prompt;\nconst reasonPrompt = $('Set-up Configurations').first().json.reason_llm;\nconst processedItems = $input.all();\n\n// codebook 只取一次（所有筆共用）\nconst codebookText = processedItems[0].json.content;\n\n// 組合多筆評論內容\nconst reviewsText = processedItems.map((item) => {\n  const row = item.json;\n  return `### place_name: ${row.place_name} | review_id: ${row.review_id}\\n${row.text}`;\n}).join('\\n\\n');\n\nconst annotatePrompt = `你是一位Google Map評論內容標註人員，請認真依照編碼簿的規則，對每一則評論內容進行標註。如果你一次收到多則評論，請獨立標註每一則評論內容，不要受到其他評論影響，並且請請完全依照評論內容輸入的順序，輸出標註的結果。\n\n## 編碼簿\n${codebookText}\n${reasonPrompt}\n\n## 待標註評論內容（共 ${processedItems.length} 則）\n${reviewsText}\n`;\n\nconst firstRow = processedItems[0].json;\n\nreturn [{\n  json: {\n    sheet: firstRow.sheet,\n    model: firstRow.model_key,\n    review_ids: processedItems.map(item => item.json.review_id), \n    requestBody: {\n      systemInstruction: {\n        parts: [\n          { text: systemPrompt }\n        ]\n      },\n      contents: [\n        {\n          role: \"user\",\n          parts: [\n            { text: annotatePrompt }\n          ]\n        }\n      ],\n      generationConfig: {\n        temperature: 0,\n        maxOutputTokens: 8192,\n        responseMimeType: \"application/json\"\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        192
+      ],
+      "id": "391136c3-e43d-40d6-8a54-b2385d2fb951",
+      "name": "Prompt Gemini-12"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2672,
+        192
+      ],
+      "id": "301241e8-1003-4266-af79-9c18cb6b80b2",
+      "name": "Annotate: Gemini-12",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RFZ7EpUakQSRQjLc",
+          "name": "Google AI Studio R06"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nconst config = $('Set-up Configurations').first().json;\nconst reviewIds = $('Prompt Gemini-12').first().json.review_ids ?? [];\n\nfunction toArray(val) {\n  if (Array.isArray(val)) return val;\n  if (typeof val === 'string' && val.trim() !== '') {\n    try { return JSON.parse(val); } catch { return []; }\n  }\n  return [];\n}\n\nfunction extractJSON(text) {\n  const fenced = text.match(/```json\\s*([\\s\\S]*?)```/);\n  if (fenced) return fenced[1].trim();\n  const braceMatch = text.match(/(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])/);\n  if (braceMatch) return braceMatch[1].trim();\n  return null;\n}\n\nconst variables = toArray(config.variables);\nconst allFields = [...variables];\n\nfor (const item of items) {\n  const data = item.json;\n\n  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (!content) {\n    out.push({ json: { error: \"No content in candidates[0].content.parts[0].text\", raw: data } });\n    continue;\n  }\n\n  const extracted = extractJSON(content);\n  if (!extracted) {\n    out.push({ json: { error: \"No JSON found in content\", content, raw: data } });\n    continue;\n  }\n\n  let parsed;\n  try {\n    parsed = JSON.parse(extracted);\n  } catch (e) {\n    out.push({ json: { error: \"Failed to parse JSON\", content, extracted, raw: data } });\n    continue;\n  }\n\n  const annotations = parsed.annotations ?? [];\n  for (let i = 0; i < annotations.length; i++) {\n    const ann = annotations[i];\n    const row = {\n      review_id: reviewIds[i] ?? null,\n      review_id_llm: ann.review_id ?? null, \n      model: $input.first().json.modelVersion ?? null\n    };\n    for (const field of allFields) {\n      row[field] = ann[field] ?? null;\n    }\n    out.push({ json: row });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2848,
+        192
+      ],
+      "id": "1b235667-3e5c-41fe-99f5-857e29c5c430",
+      "name": "Parse: Gemini-12"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "reviews",
+          "mode": "list",
+          "cachedResultName": "reviews"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "to_annotate",
+              "value": "TRUE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        992,
+        -96
+      ],
+      "id": "b3c6d26d-d98d-4116-9652-73dad6f1a315",
+      "name": "Get Reviews",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "annotations_final",
+          "mode": "list",
+          "cachedResultName": "annotations_final"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "model",
+              "value": "gemini-3.1-flash-lite"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1728,
+        16
+      ],
+      "id": "9824ee7c-2350-49a3-a180-f958c7d9e14a",
+      "name": "Get current results: Gemini-12",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "annotations_final",
+          "mode": "list",
+          "cachedResultName": "annotations_final"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "model",
+              "value": "claude-haiku-4-5-20251001"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1728,
+        496
+      ],
+      "id": "870a62c1-5414-4a8c-a33a-de715b77b460",
+      "name": "Get current results: Haiku-5",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "annotations_final",
+          "mode": "list",
+          "cachedResultName": "annotations_final"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tj_truth": "={{ $json.tj_truth }}",
+            "tj_victim": "={{ $json.tj_victim }}",
+            "tj_perpetrator": "={{ $json.tj_perpetrator }}",
+            "tj_recurrence": "={{ $json.tj_recurrence }}",
+            "tj_values": "={{ $json.tj_values }}",
+            "auth_attitude": "={{ $json.auth_attitude }}",
+            "personal_nostalgia": "={{ $json.personal_nostalgia }}",
+            "pos": "={{ $json.pos }}",
+            "neg": "={{ $json.neg }}",
+            "supernatural": "={{ $json.supernatural }}",
+            "guidance_mention": "={{ $json.guidance_mention }}",
+            "guidance_eval": "={{ $json.guidance_eval }}",
+            "review_id": "={{ $json.review_id }}",
+            "model": "={{ $json.model }}",
+            "frame": "={{ $json.frame }}",
+            "frame_reason": "={{ $json.frame_reason }}",
+            "hist_engagement": "={{ $json.hist_engagement }}",
+            "auth_attitude_reason": "={{ $json.auth_attitude_reason }}",
+            "note": "={{ $json.note }}",
+            "review_id_llm": "={{ $json.review_id_llm }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "frame",
+              "displayName": "frame",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "frame_reason",
+              "displayName": "frame_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hist_engagement",
+              "displayName": "hist_engagement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_truth",
+              "displayName": "tj_truth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_victim",
+              "displayName": "tj_victim",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_perpetrator",
+              "displayName": "tj_perpetrator",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_recurrence",
+              "displayName": "tj_recurrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_values",
+              "displayName": "tj_values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "auth_attitude",
+              "displayName": "auth_attitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "auth_attitude_reason",
+              "displayName": "auth_attitude_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "personal_nostalgia",
+              "displayName": "personal_nostalgia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pos",
+              "displayName": "pos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "neg",
+              "displayName": "neg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "supernatural",
+              "displayName": "supernatural",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "guidance_mention",
+              "displayName": "guidance_mention",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "guidance_eval",
+              "displayName": "guidance_eval",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_id_llm",
+              "displayName": "review_id_llm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3040,
+        160
+      ],
+      "id": "8b224785-f800-4c20-ad5f-36fe028c288e",
+      "name": "Write Results: Gemini-12",
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 600,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        848,
+        272
+      ],
+      "id": "255c36a4-d52d-4689-92ab-e7bc3c8531e0",
+      "name": "Loop Over Reviews"
+    },
+    {
+      "parameters": {
+        "batchSize": 12,
+        "options": {
+          "reset": "={{ $prevNode.name === \"If nothing\" }}"
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2288,
+        144
+      ],
+      "id": "e8c90671-1f3c-4135-9308-4d3ef1c5a73b",
+      "name": "Loop (12 Reviews)"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {
+          "reset": "={{ $prevNode.name === \"If nothing1\" }}"
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2288,
+        464
+      ],
+      "id": "368b6cff-1ff9-4c77-a463-25bb296c6c6b",
+      "name": "Loop (5 Reviews)"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "annotations_final",
+          "mode": "list",
+          "cachedResultName": "annotations_final"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tj_truth": "={{ $json.tj_truth }}",
+            "tj_victim": "={{ $json.tj_victim }}",
+            "tj_perpetrator": "={{ $json.tj_perpetrator }}",
+            "tj_recurrence": "={{ $json.tj_recurrence }}",
+            "tj_values": "={{ $json.tj_values }}",
+            "auth_attitude": "={{ $json.auth_attitude }}",
+            "personal_nostalgia": "={{ $json.personal_nostalgia }}",
+            "pos": "={{ $json.pos }}",
+            "neg": "={{ $json.neg }}",
+            "supernatural": "={{ $json.supernatural }}",
+            "guidance_mention": "={{ $json.guidance_mention }}",
+            "guidance_eval": "={{ $json.guidance_eval }}",
+            "review_id": "={{ $json.review_id }}",
+            "model": "={{ $json.model }}",
+            "frame": "={{ $json.frame }}",
+            "frame_reason": "={{ $json.frame_reason }}",
+            "hist_engagement": "={{ $json.hist_engagement }}",
+            "auth_attitude_reason": "={{ $json.auth_attitude_reason }}",
+            "note": "={{ $json.note }}",
+            "review_id_llm": "={{ $json.review_id_llm }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "frame",
+              "displayName": "frame",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "frame_reason",
+              "displayName": "frame_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hist_engagement",
+              "displayName": "hist_engagement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_truth",
+              "displayName": "tj_truth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_victim",
+              "displayName": "tj_victim",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_perpetrator",
+              "displayName": "tj_perpetrator",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_recurrence",
+              "displayName": "tj_recurrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tj_values",
+              "displayName": "tj_values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "auth_attitude",
+              "displayName": "auth_attitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "auth_attitude_reason",
+              "displayName": "auth_attitude_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "personal_nostalgia",
+              "displayName": "personal_nostalgia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pos",
+              "displayName": "pos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "neg",
+              "displayName": "neg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "supernatural",
+              "displayName": "supernatural",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "guidance_mention",
+              "displayName": "guidance_mention",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "guidance_eval",
+              "displayName": "guidance_eval",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_id_llm",
+              "displayName": "review_id_llm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3040,
+        480
+      ],
+      "id": "ce059414-3e12-4e3c-afad-e27881490588",
+      "name": "Write Results: Haiku-5",
+      "credentials": {
+        "postgres": {
+          "id": "I4mOj9DYXTad43Ku",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "71e9950b-886c-4c9d-b256-fe5a3f1a1bb2",
+              "leftValue": "={{ $json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2112,
+        32
+      ],
+      "id": "aa949b95-9f49-4d5f-b257-75870cc03b91",
+      "name": "If nothing"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "71e9950b-886c-4c9d-b256-fe5a3f1a1bb2",
+              "leftValue": "={{ $json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2112,
+        384
+      ],
+      "id": "967aa8c1-5546-4d3c-9247-c3b576e76ec3",
+      "name": "If nothing1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3408,
+        -320
+      ],
+      "id": "d62ccab1-83e0-41be-a392-cf47ad46572b",
+      "name": "Return to Loop",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "amount": 6
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3232,
+        192
+      ],
+      "id": "ab7beda8-7c80-4661-8f67-f928fe4668d5",
+      "name": "Wait 6s",
+      "webhookId": "8b0092ac-6788-41c2-83b9-2ad39efe9eb7"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3232,
+        512
+      ],
+      "id": "c69ccb0f-583f-451d-aa60-12d9988540f1",
+      "name": "Wait 2s",
+      "webhookId": "51331372-0a4d-4754-812f-2e8d16747824"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1936,
+        32
+      ],
+      "id": "b671b71e-a13f-4b48-9c9f-86348791a9eb",
+      "name": "Remove Duplicates",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "review_id",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1936,
+        384
+      ],
+      "id": "1a6f307e-9279-46a1-beb1-5422b864e1c1",
+      "name": "Remove Duplicates1",
+      "alwaysOutputData": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Setting Task(s)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set-up Configurations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setting Task(s)": {
+      "main": [
+        [
+          {
+            "node": "Merge: Only Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Codebook": {
+      "main": [
+        [
+          {
+            "node": "Get Codebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Codebook": {
+      "main": [
+        [
+          {
+            "node": "Merge: Reviews & Codebook",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Task Info": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge: Only Tasks": {
+      "main": [
+        [
+          {
+            "node": "Get Reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Task Info",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Switch: LLM": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Get current results: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get current results: Haiku-5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remove Duplicates1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge: Reviews & Codebook": {
+      "main": [
+        [
+          {
+            "node": "Switch: LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set-up Configurations": {
+      "main": [
+        [
+          {
+            "node": "Merge: Only Tasks",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prompt Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Annotate: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Parse: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Annotate: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Parse: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Write Results: Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge Task Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get current results: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Gemini-12": {
+      "main": [
+        [
+          {
+            "node": "Wait 6s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Reviews": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Merge: Reviews & Codebook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Codebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (12 Reviews)": {
+      "main": [
+        [
+          {
+            "node": "Return to Loop",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Prompt Gemini-12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (5 Reviews)": {
+      "main": [
+        [
+          {
+            "node": "Return to Loop",
+            "type": "main",
+            "index": 3
+          }
+        ],
+        [
+          {
+            "node": "Prompt Haiku-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results: Haiku-5": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If nothing": {
+      "main": [
+        [
+          {
+            "node": "Return to Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop (12 Reviews)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If nothing1": {
+      "main": [
+        [
+          {
+            "node": "Return to Loop",
+            "type": "main",
+            "index": 2
+          }
+        ],
+        [
+          {
+            "node": "Loop (5 Reviews)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return to Loop": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 6s": {
+      "main": [
+        [
+          {
+            "node": "Loop (12 Reviews)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "Loop (5 Reviews)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "If nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates1": {
+      "main": [
+        [
+          {
+            "node": "If nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c1c3b713-7c2d-46d4-b7fc-ec8c6092d68c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0302975f56732b6bf6da221aef521718487052689d97f87adec6ff7f13a8ed4b"
+  },
+  "id": "H6UJtZ5pDTG3REc3",
+  "tags": []
+}
